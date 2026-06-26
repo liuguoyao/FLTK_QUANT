@@ -57,7 +57,7 @@ void MyButton::SetPinColor(Fl_Color c) { pin_color_ = c; }
 
 void MyButton::draw() {
     // 不调用 Fl_Button::draw(),完全自绘圆形端口
-    int cx = x() + w() / 2;
+    int cx = GetButtonType() == FL_OP_INPUT_BUTTON? x() : x()+ w();
     int cy = y() + h() / 2;
     int r = 6;
 
@@ -69,14 +69,6 @@ void MyButton::draw() {
     fl_color(pin_color_);
     fl_pie(cx - r, cy - r, r * 2, r * 2, 0, 360);
 
-    // 端口标签
-    fl_color(CLR_TEXT_LT);
-    fl_font(FL_HELVETICA, 10);
-    if (GetButtonType() == FL_OP_INPUT_BUTTON) {
-        fl_draw(label(), x() + w() + 4, y(), 0, h(), FL_ALIGN_LEFT);
-    } else {
-        fl_draw(label(), x() - 4, y(), 0, h(), FL_ALIGN_RIGHT);
-    }
 }
 
 int MyButton::Connecting(Fl_OpButton *to, std::string &errmsg) {
@@ -130,7 +122,8 @@ bool MyButton::WouldCreateCycle(Fl_OpBox *start, Fl_OpBox *target) {
 //=============================================================================
 StyledBox::StyledBox(int X, int Y, int W, int H, const char *L,
                      Fl_Color themeColor, Fl_Color pinColor)
-    : Fl_OpBox(X, Y, W, H, L), theme_color_(themeColor), pin_color_(pinColor) {
+    : Fl_OpBox(X, Y, W, H, L), theme_color_(themeColor), pin_color_(pinColor),
+      pin_align_in_y_(0), pin_align_out_y_(0) {
     color(themeColor);
     box(FL_FLAT_BOX);
 }
@@ -142,11 +135,33 @@ void StyledBox::SetPinColorForAllButtons() {
     }
 }
 
+void StyledBox::RepositionPins() {
+    // 若设置了自定义端口 Y 偏移,把端口移到指定高度(覆盖默认居中)
+    // 端口按钮的宽高由 _RecalcButtonSizes 设定,这里只改 Y 位置
+    if (pin_align_in_y_ > 0) {
+        for (int i = 0; i < GetTotalInputButtons(); ++i) {
+            Fl_OpButton *b = GetInputButton(i);
+            int bh = b->h();
+            b->resize(b->x(), y() + pin_align_in_y_ - bh / 2, b->w(), bh);
+        }
+    }
+    if (pin_align_out_y_ > 0) {
+        for (int i = 0; i < GetTotalOutputButtons(); ++i) {
+            Fl_OpButton *b = GetOutputButton(i);
+            int bh = b->h();
+            b->resize(b->x(), y() + pin_align_out_y_ - bh / 2, b->w(), bh);
+        }
+    }
+}
+
 bool StyledBox::IsInTitleBar(int mx, int my) const {
     return mx >= x() && mx <= x() + w() && my >= y() && my <= y() + TITLE_H;
 }
 
 void StyledBox::draw() {
+    // 0. 校正端口位置(覆盖 _RecalcButtonSizes 的默认居中)
+    RepositionPins();
+
     // 1. 圆角背景
     fl_color(theme_color_);
     fl_rounded_rectf(x(), y(), w(), h(), 6);
@@ -447,6 +462,8 @@ StyledBox *MyDesk::CreateXGBoostModelNode(int x, int y, const char *title) {
 
     StyledBox *box = new StyledBox(x, y, boxW, boxH, strdup(title), CLR_BROWN_THEME,
                                     CLR_PIN_GREY);
+    // 端口与副标题行(左"特征工程" 右"模型")水平对齐
+    box->SetPinAlignY(TITLE_H + subH / 2, TITLE_H + subH / 2);
     box->begin();
     {
         new MyButton("特征工程", FL_OP_INPUT_BUTTON);

@@ -100,11 +100,23 @@ public:
     void SetPinColorForAllButtons();
     bool IsInTitleBar(int mx, int my) const;
 
+    // 设置端口垂直对齐偏移(相对于盒子顶部的 Y 坐标,<=0 表示用默认居中)
+    // 用于让端口与某一行内容水平对齐(如 XGBoost 节点的副标题行)
+    void SetPinAlignY(int inputY, int outputY) {
+        pin_align_in_y_ = inputY;
+        pin_align_out_y_ = outputY;
+    }
+
     void draw() override;
 
 protected:
     Fl_Color theme_color_;
     Fl_Color pin_color_;
+    int pin_align_in_y_;   // 输入端口中心 Y(相对盒顶),<=0 表默认
+    int pin_align_out_y_;  // 输出端口中心 Y(相对盒顶),<=0 表默认
+
+    // 在绘制前校正端口位置到 pin_align_y(覆盖 _RecalcButtonSizes 的默认居中)
+    void RepositionPins();
 };
 
 //=============================================================================

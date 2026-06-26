@@ -252,7 +252,7 @@ MyDesk::MyDesk(int X, int Y, int W, int H, const char *L)
     box(FL_NO_BOX);
     SetConnectStyle(FL_OPCONNECT_STYLE_CURVE);
     SetOpConnectColor(CLR_CONN);
-    SetOpConnectWidth(1);
+    SetOpConnectWidth(3);
 }
 
 void MyDesk::SetScroll(Fl_Scroll *s) { scroll_ = s; }
@@ -323,7 +323,7 @@ void MyDesk::draw() {
             int portY = drag_btn_->y() + drag_btn_->h() / 2;
 
             fl_color(FL_WHITE);
-            fl_line_style(FL_SOLID, 3);
+            fl_line_style(FL_SOLID, 2);
             DrawLine((float)portX, (float)portY, (float)drag_mx_, (float)drag_my_);
             fl_line_style(0);
         }

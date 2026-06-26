@@ -253,10 +253,11 @@ void MyDesk::draw() {
     }
     fl_line_style(0);
 
-    // 2. 父类 draw 画子控件(节点)+ 原生连线
-    Fl_OpDesk::draw();
+    // 2. 只调 Fl_Scroll::draw 画子控件(节点),跳过 Fl_OpDesk::draw 的原生连线,
+    //    避免原生连线与自定义连线重复绘制(原生连线无法被我们的深色主题覆盖)
+    Fl_Scroll::draw();
 
-    // 3. 自定义连线(覆盖原生,加发光点)
+    // 3. 自定义连线(浅灰绿 + 发光点),完全替代原生连线
     DrawCustomConnections();
 }
 

@@ -8,7 +8,7 @@
 //=============================================================================
 // 全局颜色常量定义
 //=============================================================================
-const Fl_Color CLR_BG         = fl_rgb_color(0x1E, 0x1E, 0x1E);
+const Fl_Color CLR_BG         = fl_rgb_color(0xDE, 0xDE, 0xAE);
 const Fl_Color CLR_GRID       = fl_rgb_color(0x2A, 0x2A, 0x2A);
 const Fl_Color CLR_CONN       = fl_rgb_color(0x88, 0xC0, 0xA0);
 const Fl_Color CLR_GLOW       = fl_rgb_color(0x33, 0xCC, 0x66);
@@ -385,7 +385,8 @@ StyledBox *MyDesk::CreateFormulaInputNode(int x, int y, const char *title) {
     StyledBox *box = new StyledBox(x, y, 200, 60, strdup(title), CLR_GREEN_THEME);
     box->begin();
     {
-        Fl_Input *inp = new Fl_Input(30, TITLE_H + 8, 140, 22);
+        // 内部控件坐标需加上盒子基准(x,y),FLTK 子控件用窗口绝对坐标
+        Fl_Input *inp = new Fl_Input(x + 30, y + TITLE_H + 8, 140, 22);
         inp->box(FL_FLAT_BOX);
         inp->color(CLR_INPUT_BG);
         inp->textcolor(CLR_TEXT_DIM);
@@ -405,13 +406,13 @@ StyledBox *MyDesk::CreateFeatureEngineeringNode(int x, int y, const char *title)
     {
         new MyButton("特征公式", FL_OP_INPUT_BUTTON);
         new MyButton("特征工程", FL_OP_OUTPUT_BUTTON);
-        Fl_Input *inp1 = new Fl_Input(30, TITLE_H + 8, 140, 22);
+        Fl_Input *inp1 = new Fl_Input(x + 30, y + TITLE_H + 8, 140, 22);
         inp1->box(FL_FLAT_BOX);
         inp1->color(CLR_INPUT_BG);
         inp1->textcolor(CLR_TEXT_DIM);
         inp1->textsize(11);
         inp1->value("特征公式");
-        Fl_Input *inp2 = new Fl_Input(30, TITLE_H + 8 + 28, 140, 22);
+        Fl_Input *inp2 = new Fl_Input(x + 30, y + TITLE_H + 8 + 28, 140, 22);
         inp2->box(FL_FLAT_BOX);
         inp2->color(CLR_INPUT_BG);
         inp2->textcolor(CLR_TEXT_DIM);
@@ -451,22 +452,23 @@ StyledBox *MyDesk::CreateXGBoostModelNode(int x, int y, const char *title) {
         new MyButton("特征工程", FL_OP_INPUT_BUTTON);
         new MyButton("模型", FL_OP_OUTPUT_BUTTON);
 
-        Fl_Box *subL = new Fl_Box(30, TITLE_H, 90, subH, "特征工程");
+        // 副标题行:左"特征工程" 右"模型"(坐标加盒子基准 x,y)
+        Fl_Box *subL = new Fl_Box(x + 30, y + TITLE_H, 90, subH, "特征工程");
         subL->labelsize(9);
         subL->labelcolor(CLR_TEXT_DIM);
         subL->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
-        Fl_Box *subR = new Fl_Box(boxW - 90 - 30, TITLE_H, 90, subH, "模型");
+        Fl_Box *subR = new Fl_Box(x + boxW - 90 - 30, y + TITLE_H, 90, subH, "模型");
         subR->labelsize(9);
         subR->labelcolor(CLR_TEXT_DIM);
         subR->align(FL_ALIGN_RIGHT | FL_ALIGN_INSIDE);
 
         for (int i = 0; i < N; ++i) {
-            int ry = TITLE_H + subH + i * rowH;
-            Fl_Box *lab = new Fl_Box(30, ry, 95, rowH - 2, params[i].key);
+            int ry = y + TITLE_H + subH + i * rowH;
+            Fl_Box *lab = new Fl_Box(x + 30, ry, 95, rowH - 2, params[i].key);
             lab->labelsize(10);
             lab->labelcolor(CLR_TEXT_LT);
             lab->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
-            Fl_Counter *ctr = new Fl_Counter(130, ry, 110, rowH - 4);
+            Fl_Counter *ctr = new Fl_Counter(x + 130, ry, 110, rowH - 4);
             ctr->box(FL_FLAT_BOX);
             ctr->color(CLR_INPUT_BG);
             ctr->labelcolor(CLR_TEXT_LT);

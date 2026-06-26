@@ -40,7 +40,7 @@
 //=============================================================================
 // 全局颜色常量(深色主题)
 //=============================================================================
-extern const Fl_Color CLR_BG;          // 画布深灰背景  #1E1E1E
+extern const Fl_Color CLR_BG;          // 画布灰背景  #FEFEDE
 extern const Fl_Color CLR_GRID;        // 网格线        #2A2A2A
 extern const Fl_Color CLR_CONN;        // 浅灰绿连线    #88C0A0
 extern const Fl_Color CLR_GLOW;        // 绿色发光点    #33CC66

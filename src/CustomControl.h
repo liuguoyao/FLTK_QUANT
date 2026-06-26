@@ -74,6 +74,8 @@ int NodeTypeFromName(const char *name);
 //=============================================================================
 // MyButton —— 圆形端口按钮 + DAG 连接约束
 //=============================================================================
+class StyledBox;  // 前置声明(MyButton::handle 需要)
+
 class MyButton : public Fl_OpButton {
 public:
     MyButton(const char *L, Fl_OpButtonType io);
@@ -81,6 +83,7 @@ public:
     void SetPinColor(Fl_Color c);
 
     void draw() override;
+    int handle(int e) override;
     int Connecting(Fl_OpButton *to, std::string &errmsg) override;
 
 private:
@@ -117,6 +120,10 @@ public:
         subtitle_h_ = rowH;
     }
 
+    // 校正端口位置到 pin_align_y(覆盖 _RecalcButtonSizes 的默认居中)
+    // public 以便 MyButton 在拖拽前调用
+    void RepositionPins();
+
     void draw() override;
 
 protected:
@@ -128,9 +135,6 @@ protected:
     std::string subtitle_right_;  // 右副标题(纯绘制)
     int subtitle_y_;              // 副标题行 Y(相对盒顶)
     int subtitle_h_;              // 副标题行高
-
-    // 在绘制前校正端口位置到 pin_align_y(覆盖 _RecalcButtonSizes 的默认居中)
-    void RepositionPins();
 };
 
 //=============================================================================

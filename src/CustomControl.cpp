@@ -91,6 +91,16 @@ int MyButton::Connecting(Fl_OpButton *to, std::string &errmsg) {
     return 0;
 }
 
+// 重写 handle:在鼠标按下时先校正端口位置,确保拖拽连线起点正确
+int MyButton::handle(int e) {
+    if (e == FL_PUSH) {
+        // 确保端口在正确的对齐位置(覆盖 _RecalcButtonSizes 的默认居中)
+        StyledBox *sb = (StyledBox*)GetOpBox();
+        if (sb) sb->RepositionPins();
+    }
+    return Fl_OpButton::handle(e);
+}
+
 bool MyButton::WouldCreateCycle(Fl_OpBox *start, Fl_OpBox *target) {
     if (!start || !target) return false;
     std::vector<Fl_OpBox*> stack, visited;
@@ -233,7 +243,7 @@ void MyDesk::SetScroll(Fl_Scroll *s) { scroll_ = s; }
 Fl_Scroll *MyDesk::scroll_parent() { return scroll_; }
 
 void MyDesk::draw() {
-    // 1. 深色背景 + 网格
+    // 1. 深色背景 + 网格(因为 box=FL_NO_BOX,Fl_Scroll 不会画背景,需手动画)
     fl_color(CLR_BG);
     fl_rectf(x(), y(), w(), h());
     fl_color(CLR_GRID);
@@ -253,12 +263,8 @@ void MyDesk::draw() {
     }
     fl_line_style(0);
 
-    // 2. 只调 Fl_Scroll::draw 画子控件(节点),跳过 Fl_OpDesk::draw 的原生连线,
-    //    避免原生连线与自定义连线重复绘制(原生连线无法被我们的深色主题覆盖)
-    Fl_Scroll::draw();
-
-    // 3. 自定义连线(浅灰绿 + 发光点),完全替代原生连线
-    DrawCustomConnections();
+    // 2. 调 Fl_OpDesk::draw 画子控件(节点)+ 原生连线(连线正确连到按钮端口)
+    Fl_OpDesk::draw();
 }
 
 int MyDesk::handle(int e) {

@@ -292,25 +292,31 @@ void MyDesk::draw() {
     }
     fl_line_style(0);
 
-    // 2. 调 Fl_OpDesk::draw 画子控件(节点)+ 原生连线(连线正确连到按钮端口)
-    //    同时原生也会画一条起点在按钮中心的拖拽线(起点不对)
-    Fl_OpDesk::draw();
+    // 2. 画子控件(节点) — 不用 Fl_OpDesk::draw (它会画旧的中心起点拖拽线)
+    Fl_Scroll::draw();
 
-    // 3. 修正拖拽线起点:用背景色覆盖错误的起点(按钮中心),从端口边缘重画
-    if (drag_btn_) {
-        int XC = x() + Fl::box_dx(box());
-        int YC = y() + Fl::box_dy(box());
-        int WC = (scrollbar.visible() ? w() - scrollbar.w() : w()) - Fl::box_dw(box());
-        int HC = (hscrollbar.visible() ? h() - hscrollbar.h() : h()) - Fl::box_dh(box());
-        fl_push_clip(XC, YC, WC, HC);
-        {
-            // a) 擦除按钮中心的错误起点(用背景色画一个小圆覆盖)
-            int wrongX = drag_btn_->x() + drag_btn_->w() / 2;
-            int wrongY = drag_btn_->y() + drag_btn_->h() / 2;
-            fl_color(CLR_BG);
-            fl_pie(wrongX - 8, wrongY - 8, 16, 16, 0, 360);
+    // 3. 裁剪区域(防止画到滚动条上)
+    int XC = x() + Fl::box_dx(box());
+    int YC = y() + Fl::box_dy(box());
+    int WC = (scrollbar.visible() ? w() - scrollbar.w() : w()) - Fl::box_dw(box());
+    int HC = (hscrollbar.visible() ? h() - hscrollbar.h() : h()) - Fl::box_dh(box());
+    fl_push_clip(XC, YC, WC, HC);
+    {
+        // 4. 画已有连线(使用基类的 DrawConnect,坐标正确连到端口边缘)
+        int lastwidth = 1;
+        for (int t = 0; t < GetConnectionsTotal(); ++t) {
+            Fl_OpConnect *con = GetConnection(t);
+            fl_color(con->GetColor());
+            if (con->GetWidth() != lastwidth) {
+                fl_line_style(FL_SOLID, con->GetWidth());
+                lastwidth = con->GetWidth();
+            }
+            DrawConnect(con);
+        }
+        if (lastwidth != 1) fl_line_style(0);
 
-            // b) 从端口边缘(圆形端口圆心)画修正的拖拽线
+        // 5. 拖拽中? 画修正的拖拽线(从端口边缘出发,而非按钮中心)
+        if (drag_btn_) {
             int portX = (drag_btn_->GetButtonType() == FL_OP_INPUT_BUTTON)
                         ? drag_btn_->x()                    // 输入按钮:左边缘
                         : drag_btn_->x() + drag_btn_->w();  // 输出按钮:右边缘
@@ -318,11 +324,11 @@ void MyDesk::draw() {
 
             fl_color(FL_WHITE);
             fl_line_style(FL_SOLID, 3);
-            fl_line(portX, portY, drag_mx_, drag_my_);
+            DrawLine((float)portX, (float)portY, (float)drag_mx_, (float)drag_my_);
             fl_line_style(0);
         }
-        fl_pop_clip();
     }
+    fl_pop_clip();
 }
 
 int MyDesk::handle(int e) {

@@ -70,7 +70,10 @@ set_source_files_properties(
 # Main program: interactive DAG editor
 #   WIN32_EXECUTABLE 让程序使用 GUI 子系统,启动时不弹出 cmd 黑窗
 # --------------------------------------------------------------------------
-add_executable(dag_editor src/main.cpp)
+add_executable(dag_editor
+    src/main.cpp
+    src/CustomControl.cpp
+)
 set_target_properties(dag_editor PROPERTIES WIN32_EXECUTABLE TRUE)
 
 target_link_libraries(dag_editor PRIVATE

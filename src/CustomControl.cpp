@@ -91,12 +91,29 @@ int MyButton::Connecting(Fl_OpButton *to, std::string &errmsg) {
     return 0;
 }
 
-// 重写 handle:在鼠标按下时先校正端口位置,确保拖拽连线起点正确
+// 重写 handle:在鼠标按下时先校正端口位置;拖拽时追踪状态以便修正连线起点
 int MyButton::handle(int e) {
-    if (e == FL_PUSH) {
-        // 确保端口在正确的对齐位置(覆盖 _RecalcButtonSizes 的默认居中)
-        StyledBox *sb = (StyledBox*)GetOpBox();
-        if (sb) sb->RepositionPins();
+    switch (e) {
+        case FL_PUSH:
+            // 确保端口在正确的对齐位置(覆盖 _RecalcButtonSizes 的默认居中)
+            {
+                StyledBox *sb = (StyledBox*)GetOpBox();
+                if (sb) sb->RepositionPins();
+            }
+            break;
+        case FL_DRAG:
+            // 鼠标离开按钮 → 拖拽连线中,通知 MyDesk 追踪
+            if (!Fl::event_inside(this)) {
+                MyDesk *desk = (MyDesk*)GetOpDesk();
+                desk->SetDragButton(this, Fl::event_x(), Fl::event_y());
+            }
+            break;
+        case FL_RELEASE:
+            {
+                MyDesk *desk = (MyDesk*)GetOpDesk();
+                desk->ClearDragButton();
+            }
+            break;
     }
     return Fl_OpButton::handle(e);
 }
@@ -242,6 +259,18 @@ void MyDesk::SetScroll(Fl_Scroll *s) { scroll_ = s; }
 
 Fl_Scroll *MyDesk::scroll_parent() { return scroll_; }
 
+void MyDesk::SetDragButton(Fl_OpButton *btn, int mx, int my) {
+    drag_btn_ = btn;
+    drag_mx_ = mx;
+    drag_my_ = my;
+    redraw();
+}
+
+void MyDesk::ClearDragButton() {
+    drag_btn_ = nullptr;
+    redraw();
+}
+
 void MyDesk::draw() {
     // 1. 深色背景 + 网格(因为 box=FL_NO_BOX,Fl_Scroll 不会画背景,需手动画)
     fl_color(CLR_BG);
@@ -264,7 +293,36 @@ void MyDesk::draw() {
     fl_line_style(0);
 
     // 2. 调 Fl_OpDesk::draw 画子控件(节点)+ 原生连线(连线正确连到按钮端口)
+    //    同时原生也会画一条起点在按钮中心的拖拽线(起点不对)
     Fl_OpDesk::draw();
+
+    // 3. 修正拖拽线起点:用背景色覆盖错误的起点(按钮中心),从端口边缘重画
+    if (drag_btn_) {
+        int XC = x() + Fl::box_dx(box());
+        int YC = y() + Fl::box_dy(box());
+        int WC = (scrollbar.visible() ? w() - scrollbar.w() : w()) - Fl::box_dw(box());
+        int HC = (hscrollbar.visible() ? h() - hscrollbar.h() : h()) - Fl::box_dh(box());
+        fl_push_clip(XC, YC, WC, HC);
+        {
+            // a) 擦除按钮中心的错误起点(用背景色画一个小圆覆盖)
+            int wrongX = drag_btn_->x() + drag_btn_->w() / 2;
+            int wrongY = drag_btn_->y() + drag_btn_->h() / 2;
+            fl_color(CLR_BG);
+            fl_pie(wrongX - 8, wrongY - 8, 16, 16, 0, 360);
+
+            // b) 从端口边缘(圆形端口圆心)画修正的拖拽线
+            int portX = (drag_btn_->GetButtonType() == FL_OP_INPUT_BUTTON)
+                        ? drag_btn_->x()                    // 输入按钮:左边缘
+                        : drag_btn_->x() + drag_btn_->w();  // 输出按钮:右边缘
+            int portY = drag_btn_->y() + drag_btn_->h() / 2;
+
+            fl_color(FL_WHITE);
+            fl_line_style(FL_SOLID, 3);
+            fl_line(portX, portY, drag_mx_, drag_my_);
+            fl_line_style(0);
+        }
+        fl_pop_clip();
+    }
 }
 
 int MyDesk::handle(int e) {

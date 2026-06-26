@@ -160,10 +160,18 @@ public:
     StyledBox *CreateFeatureEngineeringNode(int x, int y, const char *title);
     StyledBox *CreateXGBoostModelNode(int x, int y, const char *title);
 
+    // 拖拽连线追踪(被 MyButton 调用)
+    void SetDragButton(Fl_OpButton *btn, int mx, int my);
+    void ClearDragButton();
+
 private:
     int factor_count_, feature_count_, xgb_count_;
     Fl_Scroll *scroll_;
     int last_rmb_x_, last_rmb_y_;
+
+    // 拖拽状态追踪
+    Fl_OpButton *drag_btn_{nullptr};
+    int drag_mx_{0}, drag_my_{0};
 
     Fl_Scroll *scroll_parent();
 

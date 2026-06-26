@@ -123,7 +123,8 @@ bool MyButton::WouldCreateCycle(Fl_OpBox *start, Fl_OpBox *target) {
 StyledBox::StyledBox(int X, int Y, int W, int H, const char *L,
                      Fl_Color themeColor, Fl_Color pinColor)
     : Fl_OpBox(X, Y, W, H, L), theme_color_(themeColor), pin_color_(pinColor),
-      pin_align_in_y_(0), pin_align_out_y_(0) {
+      pin_align_in_y_(0), pin_align_out_y_(0),
+      subtitle_y_(0), subtitle_h_(0) {
     color(themeColor);
     box(FL_FLAT_BOX);
 }
@@ -191,6 +192,22 @@ void StyledBox::draw() {
     for (int i = 0; i < children(); ++i) {
         Fl_Widget *c = child(i);
         draw_child(*c);
+    }
+
+    // 5.5 画副标题文字(纯绘制,不是子控件,不会干扰 FindButtonByLabel / 连线)
+    if (!subtitle_left_.empty() || !subtitle_right_.empty()) {
+        fl_font(FL_HELVETICA, 9);
+        fl_color(CLR_TEXT_DIM);
+        if (!subtitle_left_.empty()) {
+            fl_draw(subtitle_left_.c_str(),
+                    x() + 30, y() + subtitle_y_, 90, subtitle_h_,
+                    FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
+        }
+        if (!subtitle_right_.empty()) {
+            fl_draw(subtitle_right_.c_str(),
+                    x() + w() - 90 - 30, y() + subtitle_y_, 90, subtitle_h_,
+                    FL_ALIGN_RIGHT | FL_ALIGN_INSIDE);
+        }
     }
 
     // 6. 圆角边框(最后画)
@@ -464,20 +481,12 @@ StyledBox *MyDesk::CreateXGBoostModelNode(int x, int y, const char *title) {
                                     CLR_PIN_GREY);
     // 端口与副标题行(左"特征工程" 右"模型")水平对齐
     box->SetPinAlignY(TITLE_H + subH / 2, TITLE_H + subH / 2);
+    // 副标题用纯绘制(不作为子控件,避免 FindButtonByLabel 把它误认为端口)
+    box->SetSubTitles("特征工程", "模型", TITLE_H, subH);
     box->begin();
     {
         new MyButton("特征工程", FL_OP_INPUT_BUTTON);
         new MyButton("模型", FL_OP_OUTPUT_BUTTON);
-
-        // 副标题行:左"特征工程" 右"模型"(坐标加盒子基准 x,y)
-        Fl_Box *subL = new Fl_Box(x + 30, y + TITLE_H, 90, subH, "特征工程");
-        subL->labelsize(9);
-        subL->labelcolor(CLR_TEXT_DIM);
-        subL->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
-        Fl_Box *subR = new Fl_Box(x + boxW - 90 - 30, y + TITLE_H, 90, subH, "模型");
-        subR->labelsize(9);
-        subR->labelcolor(CLR_TEXT_DIM);
-        subR->align(FL_ALIGN_RIGHT | FL_ALIGN_INSIDE);
 
         for (int i = 0; i < N; ++i) {
             int ry = y + TITLE_H + subH + i * rowH;

@@ -107,6 +107,16 @@ public:
         pin_align_out_y_ = outputY;
     }
 
+    // 设置副标题文字(纯绘制,不作为子控件,避免被 FindButtonByLabel 误认为端口)
+    // 左右两段文字,绘制在标题栏下方指定行
+    void SetSubTitles(const char *left, const char *right,
+                      int rowY, int rowH) {
+        subtitle_left_  = left  ? left  : "";
+        subtitle_right_ = right ? right : "";
+        subtitle_y_ = rowY;
+        subtitle_h_ = rowH;
+    }
+
     void draw() override;
 
 protected:
@@ -114,6 +124,10 @@ protected:
     Fl_Color pin_color_;
     int pin_align_in_y_;   // 输入端口中心 Y(相对盒顶),<=0 表默认
     int pin_align_out_y_;  // 输出端口中心 Y(相对盒顶),<=0 表默认
+    std::string subtitle_left_;   // 左副标题(纯绘制)
+    std::string subtitle_right_;  // 右副标题(纯绘制)
+    int subtitle_y_;              // 副标题行 Y(相对盒顶)
+    int subtitle_h_;              // 副标题行高
 
     // 在绘制前校正端口位置到 pin_align_y(覆盖 _RecalcButtonSizes 的默认居中)
     void RepositionPins();

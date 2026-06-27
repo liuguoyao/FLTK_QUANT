@@ -13,10 +13,12 @@
 #include <FL/Fl_Group.H>
 #include <FL/Fl_Box.H>
 #include <FL/fl_ask.H>
+#include <FL/Fl_Native_File_Chooser.H>
 
 #include <string>
 
 #include "CustomControl.h"
+#include "tool.h"
 
 //=============================================================================
 // 全局指针与菜单回调
@@ -37,6 +39,21 @@ static void Menu_About(Fl_Widget*, void*) {
                FL_MAJOR_VERSION, FL_MINOR_VERSION);
 }
 
+static void Menu_Save(Fl_Widget*, void*) {
+    Fl_Native_File_Chooser chooser(Fl_Native_File_Chooser::BROWSE_SAVE_FILE);
+    chooser.filter("DAG\t*.dag\n");
+    chooser.title("保存 DAG");
+    if (chooser.show() == 0) SaveDAGToFile(g_desk, chooser.filename());
+}
+static void Menu_Load(Fl_Widget*, void*) {
+    Fl_Native_File_Chooser chooser(Fl_Native_File_Chooser::BROWSE_FILE);
+    chooser.filter("DAG\t*.dag\n");
+    chooser.title("加载 DAG");
+    if (chooser.show() == 0) LoadDAGFromFile(g_desk, chooser.filename());
+}
+static void Menu_Run(Fl_Widget*, void*) { ExecuteDAG(g_desk); }
+static void Menu_History(Fl_Widget*, void*) { ShowExecutionHistory(); }
+
 //=============================================================================
 // main
 //=============================================================================
@@ -50,8 +67,12 @@ int main() {
 
     // 顶部菜单栏
     Fl_Menu_Bar *menubar = new Fl_Menu_Bar(0, 0, WIN_W, MENUBAR_H);
-    menubar->add("文件/退出", FL_COMMAND + 'q', Menu_Quit);
-    menubar->add("帮助/关于", 0, Menu_About);
+    menubar->add("文件/保存",   FL_COMMAND + 's', Menu_Save);
+    menubar->add("文件/加载",   FL_COMMAND + 'o', Menu_Load);
+    menubar->add("文件/退出",   FL_COMMAND + 'q', Menu_Quit);
+    menubar->add("运行/执行",   0,                Menu_Run);
+    menubar->add("运行/历史",   0,                Menu_History);
+    menubar->add("帮助/关于",   0,                Menu_About);
 
     // ---- 左侧节点库面板 ----
     Fl_Group *panel = new Fl_Group(0, MENUBAR_H, PANEL_W, WIN_H - MENUBAR_H);

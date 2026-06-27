@@ -73,6 +73,7 @@ set_source_files_properties(
 add_executable(dag_editor
     src/main.cpp
     src/CustomControl.cpp
+    src/tool.cpp
 )
 set_target_properties(dag_editor PROPERTIES WIN32_EXECUTABLE TRUE)
 

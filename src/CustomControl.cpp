@@ -342,24 +342,31 @@ int MyDesk::handle(int e) {
             std::string text = Fl::event_text();
             int typeIdx = NodeTypeFromName(text.c_str());
             if (typeIdx < 0) return 0;
-            int dropX = Fl::event_x() - x();
-            int dropY = Fl::event_y() - y();
             Fl_Scroll *scr = scroll_parent();
+            int dropX, dropY;
             if (scr) {
-                dropX += scr->xposition();
-                dropY += scr->yposition();
+                // Fl::event_x/y 是窗口绝对坐标(相对于窗口左上角)
+                // Widget::x/y 也是窗口绝对坐标(FLTK 所有子控件均使用窗口绝对坐标)
+                // 所以直接使用 Fl::event_x/y 即可在鼠标位置正确创建节点
+                dropX = Fl::event_x();
+                dropY = Fl::event_y();
+            } else {
+                dropX = Fl::event_x();
+                dropY = Fl::event_y();
             }
             CreateNodeAt((NodeType)typeIdx, dropX, dropY);
             return 1;
         }
         case FL_PUSH: {
             if (Fl::event_button() == FL_RIGHT_MOUSE) {
-                last_rmb_x_ = Fl::event_x() - x();
-                last_rmb_y_ = Fl::event_y() - y();
                 Fl_Scroll *scr = scroll_parent();
                 if (scr) {
-                    last_rmb_x_ += scr->xposition();
-                    last_rmb_y_ += scr->yposition();
+                    // 同 FL_PASTE: 直接使用窗口绝对坐标,无需转换
+                    last_rmb_x_ = Fl::event_x();
+                    last_rmb_y_ = Fl::event_y();
+                } else {
+                    last_rmb_x_ = Fl::event_x();
+                    last_rmb_y_ = Fl::event_y();
                 }
                 Fl_Menu_Item menu[] = {
                     {"删除最近的连线", 0, Menu_DeleteConnCb, this, 0, FL_MENU_DIVIDER},

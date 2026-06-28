@@ -28,16 +28,19 @@ endif()
 # --------------------------------------------------------------------------
 if(MSVC)
     include(FetchContent)
-    # FLTK 1.4.x official repo
+    # FLTK(本地 third_party/fltk,master 分支 = 1.5.0)。
+    # clone 自 https://github.com/fltk/fltk.git。用 SOURCE_DIR 纯本地引入,
+    # 与 mariadb-connector-c 同样 —— 本地有就用本地,配置不联网拉取。
     set(FLTK_QUIET ON CACHE BOOL "" FORCE)
-    set(OPTION_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    # 注意:FLTK 1.5.0 把选项名从 OPTION_BUILD_EXAMPLES/OPTION_BUILD_GL
+    #       改成了 FLTK_BUILD_EXAMPLES/FLTK_BUILD_GL。这里用新名。
+    #       (1.4.x 用旧名;若切回 release-1.4.0 需改回 OPTION_BUILD_*)
+    set(FLTK_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
     set(FLTK_BUILD_TEST     OFF CACHE BOOL "" FORCE)
-    set(OPTION_BUILD_GL     OFF CACHE BOOL "" FORCE)
+    set(FLTK_BUILD_GL       OFF CACHE BOOL "" FORCE)
     FetchContent_Declare(
         fltk
-        GIT_REPOSITORY https://github.com/fltk/fltk.git
-        GIT_TAG        release-1.4.0
-        GIT_SHALLOW    TRUE
+        SOURCE_DIR     ${CMAKE_SOURCE_DIR}/third_party/fltk
     )
     FetchContent_MakeAvailable(fltk)
 
@@ -52,22 +55,26 @@ endif()
 # --------------------------------------------------------------------------
 # MariaDB Connector/C (libmariadb) —— 数据源模块依赖
 #
-#   FetchContent 从源码构建,免预装。采用最小依赖配置:
+#   本地 clone 自 https://github.com/mariadb-corporation/mariadb-connector-c.git,
+#   钉在 tag v3.3.2(见 third_party/mariadb-connector-c)。用 SOURCE_DIR 纯本地引入,
+#   配置不联网。最小依赖配置:
 #     WITH_SSL OFF          明文连接(本地 MySQL 足够;需加密时再引 OpenSSL)
 #     WITH_UNIT_TESTS OFF   不编译测试
 #     WITH_DYNCOL OFF       不需要动态列特性
-#     INSTALL_PLUGINDIR/   不需要安装插件目录
 #
 #   产物:libmariadb 目标(datasource 库链接它)。
 # --------------------------------------------------------------------------
 include(FetchContent)
+# 用本地 third_party/mariadb-connector-c(与 FLTK 同样的纯本地做法):
+# 只指定 SOURCE_DIR,不带 GIT_REPOSITORY/GIT_TAG —— 配置不联网,避免卡在网络校验。
+# 注意:本地 clone 已 checkout 到 v3.3.2 标签(detached HEAD)。
 FetchContent_Declare(
     mariadb_connector
-    GIT_REPOSITORY https://github.com/mariadb-corporation/mariadb-connector-c.git
-    GIT_TAG        v3.3.2
-    GIT_SHALLOW    TRUE
+    SOURCE_DIR     ${CMAKE_SOURCE_DIR}/third_party/mariadb-connector-c
 )
 # 必须在 MakeAvailable 之前设置选项,影响子项目配置
+# 注意:本地 clone 检出到 v3.3.2 标签(3.4 分支会强制要求 SSL=SCHANNEL,
+#       进而引发 winsock.h/winsock2.h 冲突;3.3.2 接受 WITH_SSL=OFF,纯明文连接)。
 set(WITH_SSL         OFF CACHE BOOL "" FORCE)
 set(WITH_UNIT_TESTS  OFF CACHE BOOL "" FORCE)
 set(WITH_DYNCOL      OFF CACHE BOOL "" FORCE)
@@ -83,6 +90,8 @@ set(CLIENT_PLUGIN_CACHING_SHA2_PASSWORD STATIC CACHE STRING "" FORCE)
 set(CLIENT_PLUGIN_CLIENT_ED25519 STATIC CACHE STRING "" FORCE)
 set(CLIENT_PLUGIN_AUTH_GSSAPI_CLIENT STATIC CACHE STRING "" FORCE)
 set(CLIENT_PLUGIN_MYSQL_CLEAR_PASSWORD STATIC CACHE STRING "" FORCE)
+# parsec 是 3.4 分支新增的认证插件(默认 DYNAMIC),FetchContent 下同样会 install 失败,设 STATIC
+set(CLIENT_PLUGIN_PARSEC STATIC CACHE STRING "" FORCE)
 set(CLIENT_PLUGIN_ZLIB   STATIC CACHE STRING "" FORCE)
 set(CLIENT_PLUGIN_PVIO_SOCKET STATIC CACHE STRING "" FORCE)
 set(CLIENT_PLUGIN_PVIO_NPIPE STATIC CACHE STRING "" FORCE)

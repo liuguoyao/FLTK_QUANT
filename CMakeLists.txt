@@ -135,14 +135,27 @@ set_source_files_properties(
     PROPERTIES LANGUAGE CXX)
 
 # --------------------------------------------------------------------------
+# spdlog —— 日志库(本地 third_party/spdlog,v1.17.0)
+#   clone 自 https://github.com/gabime/spdlog.git。用 add_subdirectory 编译为
+#   静态库(目标 spdlog::spdlog)。关闭 example/tests/bench/install,最小构建。
+# --------------------------------------------------------------------------
+set(SPDLOG_BUILD_EXAMPLE OFF CACHE BOOL "" FORCE)
+set(SPDLOG_BUILD_TESTS   OFF CACHE BOOL "" FORCE)
+set(SPDLOG_BUILD_BENCH   OFF CACHE BOOL "" FORCE)
+set(SPDLOG_BUILD_ALL     OFF CACHE BOOL "" FORCE)
+set(SPDLOG_INSTALL       OFF CACHE BOOL "" FORCE)
+add_subdirectory(third_party/spdlog)
+
+# --------------------------------------------------------------------------
 # 数据源模块(datasource) —— 纯后端,不依赖 FLTK
 #   提供 IDataSource 抽象接口与 MySQL(libmariadb)实现。
 # --------------------------------------------------------------------------
 add_library(datasource STATIC
     src/datasource.cpp
+    src/DsLogger.cpp
 )
 target_include_directories(datasource PUBLIC src)
-target_link_libraries(datasource PUBLIC libmariadb)
+target_link_libraries(datasource PUBLIC libmariadb spdlog::spdlog)
 
 # --------------------------------------------------------------------------
 # Main program: interactive DAG editor

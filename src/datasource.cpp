@@ -12,6 +12,7 @@
 //        以正确处理 A 股名称中的生僻字(表本身也是 utf8mb4)。
 ///////////////////////////////////////////////////////////////////////////////
 #include "datasource.h"
+#include "DsLogger.h"
 
 #include <mysql.h>
 
@@ -83,6 +84,7 @@ bool MysqlDataSource::Connect(const DataSourceConfig &cfg) {
     mysql_ = mysql_init(nullptr);
     if (!mysql_) {
         last_error_ = "mysql_init() 失败(内存不足)";
+        DS_LOG_ERROR("Connect 失败: mysql_init() 返回 null(内存不足)");
         return false;
     }
 
@@ -107,6 +109,8 @@ bool MysqlDataSource::Connect(const DataSourceConfig &cfg) {
                             0)) {       // client flag
         last_error_ = std::string("mysql_real_connect 失败: ")
                       + mysql_error(mysql_);
+        DS_LOG_ERROR("Connect 失败: {}@{}:{} 库={} 错误={}",
+                     cfg.user, cfg.host, cfg.port, cfg.database, last_error_);
         mysql_close(mysql_);
         mysql_ = nullptr;
         return false;
@@ -117,6 +121,9 @@ bool MysqlDataSource::Connect(const DataSourceConfig &cfg) {
         mysql_set_character_set(mysql_, cfg.charset.c_str());
 
     last_error_.clear();
+    DS_LOG_INFO("Connect 成功: {}@{}:{} 库={} 字符集={}",
+                cfg.user, cfg.host, cfg.port, cfg.database,
+                cfg.charset.empty() ? "default" : cfg.charset);
     return true;
 }
 
@@ -128,6 +135,7 @@ void MysqlDataSource::Disconnect() {
     if (mysql_) {
         mysql_close(mysql_);
         mysql_ = nullptr;
+        DS_LOG_INFO("Disconnect: 已关闭 MySQL 连接");
     }
     last_error_.clear();
 }
@@ -159,6 +167,7 @@ bool MysqlDataSource::RunQuery() {
     if (!mysql_) { last_error_ = "未连接"; return false; }
     if (mysql_query(mysql_, query_.c_str()) != 0) {
         last_error_ = std::string("查询失败: ") + mysql_error(mysql_);
+        DS_LOG_ERROR("查询失败: {} SQL=[{}]", last_error_, query_);
         return false;
     }
     return true;
@@ -170,6 +179,7 @@ void MysqlDataSource::ReadAllRows(std::vector<SpotRecord> &out) {
         // 没有结果集(理论上 SELECT 不会走到这里)
         last_error_ = std::string("mysql_store_result 失败: ")
                       + mysql_error(mysql_);
+        DS_LOG_ERROR("mysql_store_result 失败: {}", last_error_);
         return;
     }
 
@@ -205,6 +215,8 @@ bool MysqlDataSource::GetSpotByDate(const std::string &trade_date,
 
     if (!RunQuery()) return false;
     ReadAllRows(out);
+    if (last_error_.empty())
+        DS_LOG_INFO("GetSpotByDate('{}') 返回 {} 条记录", trade_date, out.size());
     return last_error_.empty();
 }
 
@@ -223,15 +235,21 @@ bool MysqlDataSource::GetSpotByCode(const std::string &code, SpotRecord &out) {
     ReadAllRows(rows);
     if (last_error_.empty() && !rows.empty()) {
         out = rows.front();
+        DS_LOG_INFO("GetSpotByCode('{}') 命中: {} {} 最新价={}",
+                    code, out.code, out.name, out.latest_price);
         return true;
     }
-    if (last_error_.empty())
+    if (last_error_.empty()) {
         last_error_ = "未找到 code=" + code + " 的记录";
+        DS_LOG_ERROR("GetSpotByCode('{}') 未找到记录", code);
+    }
     return false;
 }
 
 //=============================================================================
 // 工厂函数
+//   只负责创建 MysqlDataSource 实例,不越权初始化日志(logger 在首次 DS_LOG_*
+//   调用时自行懒初始化,见 DsLogger.cpp)。
 //=============================================================================
 std::unique_ptr<IDataSource> CreateMysqlDataSource() {
     return std::unique_ptr<IDataSource>(new MysqlDataSource());

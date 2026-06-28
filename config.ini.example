@@ -1,0 +1,17 @@
+# FlOpDeskDAG 配置文件示例
+#
+# 复制本文件为 config.ini(同目录),按需修改。config.ini 不会进 git(.gitignore 忽略)。
+# DataSourceConfig 默认构造时会按顺序查找:config.ini → config.ini.example,
+# 找不到的键回退到内置默认值。
+#
+# DataSourceConfig 当前读取 [mysql] 段。
+
+[mysql]
+host = 192.168.31.9
+port = 3306
+user = root
+password = YOUR_PASSWORD_HERE
+database = marketdata
+charset = utf8mb4
+connect_timeout = 10
+auto_reconnect = true

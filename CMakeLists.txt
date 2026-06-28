@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(FlOpDeskDAG CXX)
+project(FlOpDeskDAG C CXX)
 
 # mariadb-connector-c 的 CMakeLists 仍写 cmake_minimum_required(2.x),
 # 现代 CMake(>=3.27 / 4.x)已移除对 <3.5 的兼容。在顶层提前声明策略下限,
@@ -147,6 +147,18 @@ set(SPDLOG_INSTALL       OFF CACHE BOOL "" FORCE)
 add_subdirectory(third_party/spdlog)
 
 # --------------------------------------------------------------------------
+# inih —— INI 配置解析库(本地 third_party/inih)
+#   clone 自 https://github.com/benhoyt/inih.git。inih 只带 meson 构建,
+#   这里手动编一个静态库:ini.c(C 核心)+ cpp/INIReader.cpp(C++ 封装)。
+# --------------------------------------------------------------------------
+set(INIH_DIR ${CMAKE_SOURCE_DIR}/third_party/inih)
+add_library(inih STATIC
+    ${INIH_DIR}/ini.c
+    ${INIH_DIR}/cpp/INIReader.cpp
+)
+target_include_directories(inih PUBLIC ${INIH_DIR} ${INIH_DIR}/cpp)
+
+# --------------------------------------------------------------------------
 # 数据源模块(datasource) —— 纯后端,不依赖 FLTK
 #   提供 IDataSource 抽象接口与 MySQL(libmariadb)实现。
 # --------------------------------------------------------------------------
@@ -155,7 +167,7 @@ add_library(datasource STATIC
     src/DsLogger.cpp
 )
 target_include_directories(datasource PUBLIC src)
-target_link_libraries(datasource PUBLIC libmariadb spdlog::spdlog)
+target_link_libraries(datasource PUBLIC libmariadb spdlog::spdlog inih)
 
 # --------------------------------------------------------------------------
 # Main program: interactive DAG editor
@@ -189,11 +201,30 @@ endif()
 # --------------------------------------------------------------------------
 # 运行时依赖:libmariadb 是 SHARED DLL,所有依赖它的可执行程序运行时
 #   都需要 libmariadb.dll 在同目录。构建后自动拷贝到对应输出目录。
+#   同时把 config.ini.example 拷过去;首次运行时 DataSourceConfig 会自动
+#   从 config.ini(若不存在则回退 config.ini.example)读取连接配置。
 # --------------------------------------------------------------------------
+set(CONFIG_INI_EXAMPLE ${CMAKE_SOURCE_DIR}/config.ini.example)
+set(CONFIG_INI         ${CMAKE_SOURCE_DIR}/config.ini)   # 用户编辑的真实配置(gitignore,可选)
+
+# 决定部署哪个文件作为 exe 目录里的 config.ini:
+#   仓库根有 config.ini(用户编辑版)就用它,否则用 config.ini.example。
+#   在配置时判断(EXISTS),构建时直接 copy_if_different,避免 POST_BUILD 里写 if。
+if(EXISTS ${CONFIG_INI})
+    set(CONFIG_INI_SOURCE ${CONFIG_INI})
+else()
+    set(CONFIG_INI_SOURCE ${CONFIG_INI_EXAMPLE})
+endif()
+
+# 部署配置到可执行程序目录:libmariadb.dll + config.ini.example(模板) + config.ini(实际)。
 if(WIN32)
     add_custom_command(TARGET dag_editor POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_FILE:libmariadb> $<TARGET_FILE_DIR:dag_editor>)
+            $<TARGET_FILE:libmariadb> $<TARGET_FILE_DIR:dag_editor>
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CONFIG_INI_EXAMPLE} $<TARGET_FILE_DIR:dag_editor>/config.ini.example
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CONFIG_INI_SOURCE} $<TARGET_FILE_DIR:dag_editor>/config.ini)
 endif()
 
 # --------------------------------------------------------------------------
@@ -206,8 +237,12 @@ add_executable(test_datasource
 target_link_libraries(test_datasource PRIVATE datasource)
 
 if(WIN32)
-    # test_datasource 运行时同样需要 libmariadb.dll
+    # test_datasource 运行时同样需要 libmariadb.dll + 配置文件
     add_custom_command(TARGET test_datasource POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_FILE:libmariadb> $<TARGET_FILE_DIR:test_datasource>)
+            $<TARGET_FILE:libmariadb> $<TARGET_FILE_DIR:test_datasource>
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CONFIG_INI_EXAMPLE} $<TARGET_FILE_DIR:test_datasource>/config.ini.example
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CONFIG_INI_SOURCE} $<TARGET_FILE_DIR:test_datasource>/config.ini)
 endif()

@@ -20,17 +20,30 @@
 
 //=============================================================================
 // 数据源连接配置(数据库无关)
+//
+//   默认构造时自动从配置文件读取(顺序:config.ini → config.ini.example),
+//   找不到的键回退到下面的内置默认值。也可用 LoadDataSourceConfig(path) 显式加载。
+//   配置文件格式见仓库根的 config.ini.example,读取 [mysql] 段。
 //=============================================================================
 struct DataSourceConfig {
-    std::string host      = "192.168.31.9";  // 主机
+    // 默认构造:自动从 config.ini(回退 config.ini.example)加载 [mysql] 段。
+    // 文件缺失或解析失败时,各项保留内置默认值。
+    DataSourceConfig();
+
+    std::string host      = "127.0.0.1";  // 主机
     unsigned    port      = 3306;          // 端口
     std::string user      = "root";        // 用户名
-    std::string password = "liuguoyao";                  // 密码
+    std::string password;                  // 密码
     std::string database  = "marketdata";  // 默认库
     std::string charset   = "utf8mb4";     // 字符集(A股名称含生僻字)
     unsigned    connect_timeout = 10;      // 连接超时(秒)
     bool        auto_reconnect    = true;  // 断线自动重连
 };
+
+// 从指定 INI 文件加载 [mysql] 段到 DataSourceConfig。
+// 文件缺失或键不存在时回退到 DataSourceConfig 内置默认。path 为空则跳过。
+// 返回填充后的配置;同时用 spdlog 记录加载过程/错误。
+DataSourceConfig LoadDataSourceConfig(const std::string &path);
 
 //=============================================================================
 // 行情快照记录 —— 精简版

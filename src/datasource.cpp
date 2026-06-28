@@ -15,11 +15,66 @@
 #include "DsLogger.h"
 
 #include <mysql.h>
+#include <INIReader.h>
 
 #include <cstdlib>
 #include <cstring>
 #include <string>
 #include <vector>
+
+//=============================================================================
+// DataSourceConfig —— 从 config.ini 加载(顺序:config.ini → config.ini.example)
+//=============================================================================
+// 把 [mysql] 段读入已有 cfg(在其当前值基础上覆盖)。文件缺失/键缺失时保留原值。
+// 返回 true 表示成功从文件读取。
+static bool LoadInto(DataSourceConfig &cfg, const std::string &path) {
+    if (path.empty()) return false;
+    INIReader reader(path);
+    int err = reader.ParseError();
+    if (err != 0) {
+        // -1 = 文件打不开;>0 = 第 err 行解析错误
+        if (err < 0)
+            DS_LOG_INFO("配置文件 {} 不存在,使用内置默认配置", path);
+        else
+            DS_LOG_WARN("配置文件 {} 第 {} 行解析错误,使用内置默认配置", path, err);
+        return false;
+    }
+
+    cfg.host           = reader.Get("mysql", "host", cfg.host);
+    cfg.port           = static_cast<unsigned>(
+                            reader.GetInteger("mysql", "port", cfg.port));
+    cfg.user           = reader.Get("mysql", "user", cfg.user);
+    cfg.password       = reader.Get("mysql", "password", cfg.password);
+    cfg.database       = reader.Get("mysql", "database", cfg.database);
+    cfg.charset        = reader.Get("mysql", "charset", cfg.charset);
+    cfg.connect_timeout = static_cast<unsigned>(
+                            reader.GetInteger("mysql", "connect_timeout",
+                                              cfg.connect_timeout));
+    cfg.auto_reconnect = reader.GetBoolean("mysql", "auto_reconnect",
+                                           cfg.auto_reconnect);
+    DS_LOG_INFO("已加载配置文件 {} (host={} port={} db={} user={})",
+                path, cfg.host, cfg.port, cfg.database, cfg.user);
+    return true;
+}
+
+DataSourceConfig LoadDataSourceConfig(const std::string &path) {
+    DataSourceConfig cfg;            // 成员默认初始化(不触发文件加载)
+    LoadInto(cfg, path);
+    return cfg;
+}
+
+DataSourceConfig::DataSourceConfig() {
+    // 成员已有默认值。尝试从文件覆盖:
+    // 顺序:config.ini(用户编辑版) → config.ini.example(模板)
+    static const char *kCandidates[] = { "config.ini", "config.ini.example" };
+    for (const char *cand : kCandidates) {
+        if (LoadInto(*this, cand)) return;
+    }
+    DS_LOG_INFO("未找到 config.ini / config.ini.example,使用内置默认配置");
+}
+
+
+
 
 //=============================================================================
 // MysqlDataSource

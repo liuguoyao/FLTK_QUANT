@@ -1,11 +1,17 @@
 # FlOpDeskDAG 配置文件示例
 #
 # 复制本文件为 config.ini(同目录),按需修改。config.ini 不会进 git(.gitignore 忽略)。
-# DataSourceConfig 默认构造时会按顺序查找:config.ini → config.ini.example,
+# DataSourceConfig 默认构造时按顺序查找:config.ini → config.ini.example,
 # 找不到的键回退到内置默认值。
 #
-# DataSourceConfig 当前读取 [mysql] 段。
+# 两种配置段:
+#   [mysql]            —— 默认连接配置(DataSourceConfig 兜底用,旧格式,向后兼容)
+#   [source.<名称>]    —— 命名数据源(可配多个,供"数据源"节点下拉选择)
+#
+# 命名数据源也可通过菜单「数据源 → 配置数据源」图形化添加(会追加一个 [source.*] 段)。
+# 数据源节点通过下拉框选择已配置的数据源名称,不自行保存连接信息。
 
+# === 默认连接(向后兼容,DataSourceConfig 兜底用)===
 [mysql]
 host = 192.168.31.9
 port = 3306
@@ -15,3 +21,25 @@ database = marketdata
 charset = utf8mb4
 connect_timeout = 10
 auto_reconnect = true
+
+# === 命名数据源示例 ===
+# 每个数据源一个段,段名前缀 source. 后跟名称;段内 name/type 必填。
+# type=mysql:填 host/port/user/password/database/charset/...
+# type=sqlite:填 path(注意:sqlite 后端当前为占位,UI 可选但尚无实现)
+
+[source.主库]
+name = 主库
+type = mysql
+host = 192.168.31.9
+port = 3306
+user = root
+password = YOUR_PASSWORD_HERE
+database = marketdata
+charset = utf8mb4
+connect_timeout = 10
+auto_reconnect = true
+
+# [source.本地SQLite]
+# name = 本地SQLite
+# type = sqlite
+# path = D:/data/a.db

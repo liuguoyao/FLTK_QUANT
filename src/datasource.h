@@ -96,4 +96,39 @@ public:
 //=============================================================================
 std::unique_ptr<IDataSource> CreateMysqlDataSource();
 
+//=============================================================================
+// 命名数据源 —— 多数据源管理(config.ini 里可配置多个)
+//
+//   config.ini 中每个数据源占一个段,段名前缀 "source.",例如:
+//     [source.主库]
+//     name = 主库
+//     type = mysql          ; 或 sqlite
+//     host = 192.168.31.9   ; mysql 专用
+//     port = 3306
+//     user = root
+//     password = xxx
+//     database = marketdata
+//     charset = utf8mb4
+//     path = D:/data/a.db   ; sqlite 专用
+//
+//   节点(源节点)通过下拉框选择已配置的数据源名称,不自行保存连接信息。
+//=============================================================================
+struct NamedDataSource {
+    std::string         name;   // 数据源名称(区分不同数据源)
+    std::string         type;   // "mysql" 或 "sqlite"
+    DataSourceConfig    cfg;    // mysql 连接配置
+    std::string         path;   // sqlite 文件路径(type=sqlite 时用)
+};
+
+// 从 config.ini 读取所有 [source.*] 段为命名数据源列表(按段名顺序)。
+// 文件缺失或无 source 段时返回空列表。
+std::vector<NamedDataSource> LoadAllDataSources(const std::string &path);
+
+// 仅取所有命名数据源的名称(供下拉框等使用)。
+std::vector<std::string> ListDataSourceNames(const std::string &path);
+
+// 追加一个命名数据源到 config.ini(写 [source.<name>] 段)。
+// 不做去重;成功返回 true。文件不可写返回 false。
+bool AppendDataSource(const std::string &path, const NamedDataSource &ds);
+
 #endif // DATASOURCE_H

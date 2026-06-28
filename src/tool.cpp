@@ -52,6 +52,8 @@ bool LoadDAGFromFile(MyDesk *desk, const char *filepath) {
                 box = desk->CreateFeatureEngineeringNode(x, y, label);
             else if (strstr(label, "XGBoost") || strstr(label, "XGBOOST_MODEL"))
                 box = desk->CreateXGBoostModelNode(x, y, label);
+            else if (strstr(label, "数据源") || strstr(label, "DATA_SOURCE"))
+                box = desk->CreateDataSourceNode(x, y, label);
             if (box) { box->SetPinColorForAllButtons(); created[label] = box; }
         } else if (sscanf(line, "CONN %255s %127s %255s %127s", srcLabel, srcBut, dstLabel, dstBut) == 4) {
             auto si = created.find(srcLabel), di = created.find(dstLabel);

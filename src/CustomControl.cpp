@@ -4,6 +4,9 @@
 //   自定义控件与画布的实现。详见 CustomControl.h。
 ///////////////////////////////////////////////////////////////////////////////
 #include "CustomControl.h"
+#include "datasource.h"
+
+#include <FL/Fl_Choice.H>
 
 //=============================================================================
 // 全局颜色常量定义
@@ -29,7 +32,8 @@ const int TITLE_H = 24;
 const char *kNodeTypeNames[] = {
     "FORMULA_INPUT",
     "FEATURE_ENGINEERING",
-    "XGBOOST_MODEL"
+    "XGBOOST_MODEL",
+    "DATA_SOURCE"
 };
 
 const char *NodeDisplayName(NodeType t) {
@@ -37,6 +41,7 @@ const char *NodeDisplayName(NodeType t) {
         case NODE_FORMULA_INPUT:       return "公式输入";
         case NODE_FEATURE_ENGINEERING: return "特征工程";
         case NODE_XGBOOST_MODEL:       return "XGBoost模型";
+        case NODE_DATA_SOURCE:         return "数据源";
         default: return "未知";
     }
 }
@@ -247,7 +252,7 @@ void StyledBox::draw() {
 //=============================================================================
 MyDesk::MyDesk(int X, int Y, int W, int H, const char *L)
     : Fl_OpDesk(X, Y, W, H, L), factor_count_(0), feature_count_(0),
-      xgb_count_(0), scroll_(nullptr), last_rmb_x_(0), last_rmb_y_(0) {
+      xgb_count_(0), source_count_(0), scroll_(nullptr), last_rmb_x_(0), last_rmb_y_(0) {
     color(CLR_BG);
     box(FL_NO_BOX);
     SetConnectStyle(FL_OPCONNECT_STYLE_CURVE);
@@ -405,6 +410,12 @@ void MyDesk::CreateNodeAt(NodeType type, int x, int y) {
             char title[64];
             snprintf(title, sizeof(title), "XGBoost_%d", ++xgb_count_);
             box = CreateXGBoostModelNode(x, y, title);
+            break;
+        }
+        case NODE_DATA_SOURCE: {
+            char title[64];
+            snprintf(title, sizeof(title), "数据源_%d", ++source_count_);
+            box = CreateDataSourceNode(x, y, title);
             break;
         }
         default: break;
@@ -582,6 +593,33 @@ StyledBox *MyDesk::CreateXGBoostModelNode(int x, int y, const char *title) {
             ctr->step(1);
             ctr->lstep(10);
         }
+    }
+    box->end();
+    return box;
+}
+
+// 🔹 节点 D:数据源节点 —— source 下拉框(选已配置的数据源)+ 数据输出端口
+StyledBox *MyDesk::CreateDataSourceNode(int x, int y, const char *title) {
+    StyledBox *box = new StyledBox(x, y, 200, 90, strdup(title), CLR_GREEN_THEME);
+    box->begin();
+    {
+        // source 下拉框:列出 config.ini 里已配置的数据源名称
+        Fl_Choice *choice = new Fl_Choice(x + 30, y + TITLE_H + 8, 150, 22, "source:");
+        choice->box(FL_FLAT_BOX);
+        choice->color(CLR_INPUT_BG);
+        choice->textcolor(CLR_TEXT_LT);
+        choice->textsize(11);
+        choice->labelcolor(CLR_TEXT_LT);
+        choice->labelsize(10);
+        choice->align(FL_ALIGN_TOP_LEFT);
+        choice->down_box(FL_FLAT_BOX);
+        std::vector<std::string> names = ListDataSourceNames("config.ini");
+        if (names.empty()) choice->add("(未配置数据源)");
+        for (const std::string &n : names) choice->add(n.c_str());
+        choice->value(0);
+
+        // 数据输出端口(无输入端口 —— 源节点是 DAG 起点)
+        new MyButton("数据", FL_OP_OUTPUT_BUTTON);
     }
     box->end();
     return box;

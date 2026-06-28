@@ -14,11 +14,15 @@
 #include <FL/Fl_Box.H>
 #include <FL/fl_ask.H>
 #include <FL/Fl_Native_File_Chooser.H>
+#include <FL/Fl_Choice.H>
+#include <FL/Fl_Int_Input.H>
 
 #include <string>
+#include <cstdlib>
 
 #include "CustomControl.h"
 #include "tool.h"
+#include "datasource.h"
 
 //=============================================================================
 // 全局指针与菜单回调
@@ -54,6 +58,85 @@ static void Menu_Load(Fl_Widget*, void*) {
 static void Menu_Run(Fl_Widget*, void*) { ExecuteDAG(g_desk); }
 static void Menu_History(Fl_Widget*, void*) { ShowExecutionHistory(); }
 
+// 配置数据源对话框:输入 名称 / 类型(mysql|sqlite) / 连接信息,保存到 config.ini
+namespace {
+// 把对话框各控件指针打包,通过 user_data 传给静态保存回调
+struct DlgFields {
+    Fl_Input     *name, *host, *user, *pw, *db, *path;
+    Fl_Int_Input *port;
+    Fl_Choice    *type;
+    Fl_Window    *win;
+};
+
+void SaveDataSourceCb(Fl_Widget*, void *data) {
+    DlgFields *f = static_cast<DlgFields*>(data);
+    NamedDataSource ds;
+    ds.name = f->name->value() ? f->name->value() : "";
+    ds.type = f->type->text(f->type->value()) ? f->type->text(f->type->value()) : "mysql";
+    if (ds.type == "sqlite") {
+        ds.path = f->path->value() ? f->path->value() : "";
+    } else {
+        ds.cfg.host     = f->host->value();
+        ds.cfg.port     = (unsigned)std::atoi(f->port->value());
+        ds.cfg.user     = f->user->value();
+        ds.cfg.password = f->pw->value();
+        ds.cfg.database = f->db->value();
+    }
+    if (ds.name.empty()) { fl_alert("请填写数据源名称"); return; }
+    if (AppendDataSource("config.ini", ds)) {
+        fl_message("已保存数据源「%s」到 config.ini\n重新拖出数据源节点即可在下拉框看到。",
+                   ds.name.c_str());
+        f->win->hide();
+    } else {
+        fl_alert("保存失败(无法写入 config.ini)");
+    }
+}
+}  // namespace
+
+static void Menu_ConfigureDataSource(Fl_Widget*, void*) {
+    const int DW = 380, DH = 250;
+    Fl_Double_Window *dlg = new Fl_Double_Window(DW, DH, "配置数据源");
+    dlg->begin();
+
+    DlgFields *f = new DlgFields{};
+    f->win = dlg;
+    f->name = new Fl_Input(100, 20, 250, 24, "名称:");
+    f->name->value("新数据源");
+
+    f->type = new Fl_Choice(100, 55, 250, 24, "类型:");
+    f->type->add("mysql");
+    f->type->add("sqlite");
+    f->type->value(0);
+
+    f->host  = new Fl_Input(100, 90, 250, 24, "主机:");
+    f->host->value("127.0.0.1");
+    f->port  = new Fl_Int_Input(100, 120, 250, 24, "端口:");
+    f->port->value("3306");
+    f->user  = new Fl_Input(100, 150, 90, 24, "用户:");
+    f->user->value("root");
+    f->pw    = new Fl_Input(200, 150, 150, 24, "密码:");
+    f->pw->value("");
+    f->db    = new Fl_Input(100, 180, 250, 24, "数据库:");
+    f->db->value("marketdata");
+
+    // SQLite 路径(本版仅 UI,后端未实现)
+    f->path  = new Fl_Input(100, 90, 250, 24, "路径:");
+    f->path->value("");
+    f->path->hide();
+    // (简单起见:本对话框不做类型切换时显隐字段;用户按所选类型填对应字段即可)
+
+    Fl_Button *saveBtn = new Fl_Button(140, 215, 100, 28, "保存");
+    saveBtn->callback(SaveDataSourceCb, f);
+    dlg->end();
+    dlg->set_modal();
+
+    dlg->show();
+    while (dlg->shown()) Fl::wait();
+    // 对话框关闭后清理(控件随窗口销毁,只删字段结构)
+    delete f;
+}
+
+
 //=============================================================================
 // main
 //=============================================================================
@@ -72,6 +155,7 @@ int main() {
     menubar->add("文件/退出",   FL_COMMAND + 'q', Menu_Quit);
     menubar->add("运行/执行",   0,                Menu_Run);
     menubar->add("运行/历史",   0,                Menu_History);
+    menubar->add("数据源/配置数据源", 0,           Menu_ConfigureDataSource);
     menubar->add("帮助/关于",   0,                Menu_About);
 
     // ---- 左侧节点库面板 ----
@@ -96,6 +180,8 @@ int main() {
                        "特征工程\n(FeatureEng)", NODE_FEATURE_ENGINEERING);
         new NodeButton(btnX, btnY + 2*(btnH+btnGap), btnW, btnH,
                        "XGBoost模型\n(XGBoostModel)", NODE_XGBOOST_MODEL);
+        new NodeButton(btnX, btnY + 3*(btnH+btnGap), btnW, btnH,
+                       "数据源\n(DataSource)", NODE_DATA_SOURCE);
 
         Fl_Box *hint = new Fl_Box(8, WIN_H - 140, PANEL_W - 16, 130);
         hint->labelsize(10);

@@ -73,6 +73,95 @@ DataSourceConfig::DataSourceConfig() {
     DS_LOG_INFO("未找到 config.ini / config.ini.example,使用内置默认配置");
 }
 
+//=============================================================================
+// 命名数据源 —— 多数据源管理(config.ini 的 [source.*] 段)
+//=============================================================================
+namespace {
+// 段名前缀,例如 [source.主库]
+constexpr const char *kSourcePrefix = "source.";
+
+// 判断段名是否为 source.* 并返回去掉前缀后的名称;否则返回空。
+std::string SourceNameFromSection(const std::string &section) {
+    if (section.compare(0, std::strlen(kSourcePrefix), kSourcePrefix) != 0)
+        return std::string();
+    return section.substr(std::strlen(kSourcePrefix));
+}
+}  // namespace
+
+std::vector<NamedDataSource> LoadAllDataSources(const std::string &path) {
+    std::vector<NamedDataSource> result;
+    if (path.empty()) return result;
+
+    INIReader reader(path);
+    if (reader.ParseError() != 0) {
+        DS_LOG_INFO("LoadAllDataSources: 无法解析 {}", path);
+        return result;
+    }
+
+    auto sections = reader.Sections();
+    for (const std::string &sec : sections) {
+        std::string nm = SourceNameFromSection(sec);
+        if (nm.empty()) continue;  // 非 source.* 段(如旧的 [mysql])
+
+        NamedDataSource ds;
+        ds.name = reader.Get(sec, "name", nm);
+        ds.type = reader.Get(sec, "type", "mysql");
+        if (ds.type == "sqlite") {
+            ds.path = reader.Get(sec, "path", "");
+        } else {
+            // mysql:复用 DataSourceConfig 字段
+            ds.cfg.host = reader.Get(sec, "host", ds.cfg.host);
+            ds.cfg.port = static_cast<unsigned>(
+                reader.GetInteger(sec, "port", ds.cfg.port));
+            ds.cfg.user     = reader.Get(sec, "user", ds.cfg.user);
+            ds.cfg.password = reader.Get(sec, "password", ds.cfg.password);
+            ds.cfg.database = reader.Get(sec, "database", ds.cfg.database);
+            ds.cfg.charset  = reader.Get(sec, "charset", ds.cfg.charset);
+            ds.cfg.connect_timeout = static_cast<unsigned>(
+                reader.GetInteger(sec, "connect_timeout", ds.cfg.connect_timeout));
+            ds.cfg.auto_reconnect = reader.GetBoolean(sec, "auto_reconnect",
+                                                      ds.cfg.auto_reconnect);
+        }
+        result.push_back(std::move(ds));
+    }
+    DS_LOG_INFO("LoadAllDataSources: 从 {} 读取 {} 个数据源", path, result.size());
+    return result;
+}
+
+std::vector<std::string> ListDataSourceNames(const std::string &path) {
+    std::vector<std::string> names;
+    for (const auto &ds : LoadAllDataSources(path))
+        names.push_back(ds.name);
+    return names;
+}
+
+bool AppendDataSource(const std::string &path, const NamedDataSource &ds) {
+    FILE *fp = std::fopen(path.c_str(), "a");
+    if (!fp) {
+        DS_LOG_ERROR("AppendDataSource: 无法写入 {}", path);
+        return false;
+    }
+    std::fprintf(fp, "\n[source.%s]\n", ds.name.c_str());
+    std::fprintf(fp, "name = %s\n", ds.name.c_str());
+    std::fprintf(fp, "type = %s\n", ds.type.c_str());
+    if (ds.type == "sqlite") {
+        std::fprintf(fp, "path = %s\n", ds.path.c_str());
+    } else {
+        std::fprintf(fp, "host = %s\n",            ds.cfg.host.c_str());
+        std::fprintf(fp, "port = %u\n",            ds.cfg.port);
+        std::fprintf(fp, "user = %s\n",            ds.cfg.user.c_str());
+        std::fprintf(fp, "password = %s\n",        ds.cfg.password.c_str());
+        std::fprintf(fp, "database = %s\n",        ds.cfg.database.c_str());
+        std::fprintf(fp, "charset = %s\n",         ds.cfg.charset.c_str());
+        std::fprintf(fp, "connect_timeout = %u\n", ds.cfg.connect_timeout);
+        std::fprintf(fp, "auto_reconnect = %s\n",  ds.cfg.auto_reconnect ? "true" : "false");
+    }
+    std::fclose(fp);
+    DS_LOG_INFO("AppendDataSource: 已追加 [source.{}] 到 {}", ds.name, path);
+    return true;
+}
+
+
 
 
 

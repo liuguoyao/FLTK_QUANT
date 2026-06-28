@@ -38,6 +38,12 @@ bool LoadDAGFromFile(MyDesk *desk, const char *filepath) {
     if (!fp) return false;
     char line[512];
     if (!fgets(line, sizeof(line), fp)) { fclose(fp); return false; }
+
+    // 加载前先清空画布(删除所有现有节点及其连线),避免新旧节点叠加。
+    // 迭代模式同 Fl_OpDesk::DeleteSelected:每次删 index 0,直到无节点。
+    while (desk->GetOpBoxTotal() > 0)
+        desk->DeleteBox(desk->GetOpBox(0));
+
     desk->begin();
     char label[256], srcLabel[256], srcBut[128], dstLabel[256], dstBut[128];
     int x, y;

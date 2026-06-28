@@ -121,6 +121,16 @@ public:
         subtitle_h_ = rowH;
     }
 
+    // 添加一行"行标签"(纯 fl_draw 绘制,不是子控件)。
+    // 用于源节点等需要左对齐字段标签、且要避免 Fl_Box 居中基线不稳的场景。
+    // x/y/w/h 都是相对盒子左上角的坐标;text 为标签文字。
+    void AddRowLabel(int rx, int ry, int rw, int rh, const char *text) {
+        RowLabel lbl;
+        lbl.x = rx; lbl.y = ry; lbl.w = rw; lbl.h = rh;
+        lbl.text = text ? text : "";
+        row_labels_.push_back(lbl);
+    }
+
     // 校正端口位置到 pin_align_y(覆盖 _RecalcButtonSizes 的默认居中)
     // public 以便 MyButton 在拖拽前调用
     void RepositionPins();
@@ -136,6 +146,10 @@ protected:
     std::string subtitle_right_;  // 右副标题(纯绘制)
     int subtitle_y_;              // 副标题行 Y(相对盒顶)
     int subtitle_h_;              // 副标题行高
+
+    // 行标签(纯 fl_draw 绘制,相对盒顶坐标)
+    struct RowLabel { int x, y, w, h; std::string text; };
+    std::vector<RowLabel> row_labels_;
 };
 
 //=============================================================================

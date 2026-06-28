@@ -242,6 +242,17 @@ void StyledBox::draw() {
         }
     }
 
+    // 5.6 行标签(纯 fl_draw 绘制,相对盒顶坐标;坐标可控,确定性对齐)
+    if (!row_labels_.empty()) {
+        fl_font(FL_HELVETICA, 11);
+        fl_color(CLR_TEXT_LT);
+        for (const RowLabel &rl : row_labels_) {
+            fl_draw(rl.text.c_str(),
+                    x() + rl.x, y() + rl.y, rl.w, rl.h,
+                    FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
+        }
+    }
+
     // 6. 圆角边框(最后画)
     fl_color(fl_rgb_color(0x0A, 0x0A, 0x0A));
     fl_rounded_rect(x(), y(), w(), h(), 6);
@@ -600,23 +611,59 @@ StyledBox *MyDesk::CreateXGBoostModelNode(int x, int y, const char *title) {
 
 // 🔹 节点 D:数据源节点 —— source 下拉框(选已配置的数据源)+ 数据输出端口
 StyledBox *MyDesk::CreateDataSourceNode(int x, int y, const char *title) {
-    StyledBox *box = new StyledBox(x, y, 200, 90, strdup(title), CLR_GREEN_THEME);
+    // 节点布局:标题栏 + 5 行(source + database/table/startdate/enddate)
+    // 标签用 fl_draw 手绘(StyledBox::draw 里画),不用 Fl_Box —— 避免
+    // Fl_Box 文字基线与 Fl_Input 不一致导致"有时对齐有时不齐"。
+    // 标签坐标用相对盒顶的值传给 AddRowLabel,与控件(绝对坐标)的 y 严格对应。
+    const int boxW    = 320;
+    const int rowH    = 20;
+    const int rowStep = 24;
+    const int labOffX = 8;              // 标签相对盒左的 x 偏移
+    const int labW    = 62;
+    const int ctlX    = x + labOffX + labW + 4;        // 控件绝对 x = x + 74
+    const int ctlW    = boxW - (ctlX - x) - 8;
+    const int topPad  = 6;
+    const int rows    = 5;              // source + 4 字段
+    const int boxH = TITLE_H + topPad + (rows+2) * rowStep + 4;
+    StyledBox *box = new StyledBox(x, y, boxW, boxH, strdup(title), CLR_GREEN_THEME);
     box->begin();
     {
-        // source 下拉框:列出 config.ini 里已配置的数据源名称
-        Fl_Choice *choice = new Fl_Choice(x + 30, y + TITLE_H + 8, 150, 22, "source:");
+        // 行 0:source(手绘标签 + 下拉框)
+        int ry = y + TITLE_H + topPad;
+        box->AddRowLabel(labOffX, TITLE_H + topPad, labW, rowH, "source:");
+        Fl_Choice *choice = new Fl_Choice(ctlX, ry, ctlW, rowH);
         choice->box(FL_FLAT_BOX);
         choice->color(CLR_INPUT_BG);
         choice->textcolor(CLR_TEXT_LT);
+        choice->textfont(FL_HELVETICA);
         choice->textsize(11);
-        choice->labelcolor(CLR_TEXT_LT);
-        choice->labelsize(10);
-        choice->align(FL_ALIGN_TOP_LEFT);
         choice->down_box(FL_FLAT_BOX);
         std::vector<std::string> names = ListDataSourceNames("config.ini");
         if (names.empty()) choice->add("(未配置数据源)");
         for (const std::string &n : names) choice->add(n.c_str());
         choice->value(0);
+
+        // 行 1..4:database / table / startdate / enddate
+        struct FieldDef { const char *label; const char *defval; };
+        static const FieldDef fields[] = {
+            {"database",  "marketdata"},
+            {"table",     "stock_a_spot"},
+            {"startdate", "20260101"},
+            {"enddate",   "20260628"},
+        };
+        for (int i = 0; i < 4; ++i) {
+            int fy = y + TITLE_H + topPad + (1 + i) * rowStep;
+            // 标签相对坐标:y 与控件 fy 同高(相对盒顶 = TITLE_H + topPad + (1+i)*rowStep)
+            box->AddRowLabel(labOffX, TITLE_H + topPad + (1 + i) * rowStep,
+                              labW, rowH, fields[i].label);
+            Fl_Input *inp = new Fl_Input(ctlX, fy, ctlW, rowH);
+            inp->box(FL_FLAT_BOX);
+            inp->color(CLR_INPUT_BG);
+            inp->textcolor(CLR_TEXT_LT);
+            inp->textfont(FL_HELVETICA);
+            inp->textsize(11);
+            inp->value(fields[i].defval);
+        }
 
         // 数据输出端口(无输入端口 —— 源节点是 DAG 起点)
         new MyButton("数据", FL_OP_OUTPUT_BUTTON);

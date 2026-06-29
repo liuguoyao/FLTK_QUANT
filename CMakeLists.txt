@@ -75,9 +75,34 @@ FetchContent_Declare(
 # 必须在 MakeAvailable 之前设置选项,影响子项目配置
 # 注意:本地 clone 检出到 v3.3.2 标签(3.4 分支会强制要求 SSL=SCHANNEL,
 #       进而引发 winsock.h/winsock2.h 冲突;3.3.2 接受 WITH_SSL=OFF,纯明文连接)。
+
+# --------------------------------------------------------------------------
+# 排除 MSYS2/MinGW 目录,防止 find_package(CURL) 等探测搜到 msys64 的
+# CURLConfig.cmake / FindBrotli.cmake(MinGW 编译、与 MSVC ABI 不兼容,
+# 且其旧式 if(... LESS ...) 在新版 CMake 4.x 下报 "Unknown arguments")。
+# 本机 PATH 含 G:\msys64\ucrt64\bin,VS IDE 继承系统 PATH 时会把这些
+# lib/cmake 纳入搜索范围。CMAKE_IGNORE_PATH 对 find_package/find_path
+# /find_library 全局生效,是比 CMAKE_DISABLE_FIND_PACKAGE_* 更彻底的隔离:
+# 即便 find_package(CURL) 被无条件调用,也只会 NOTFOUND 而非命中 msys64。
+# 同时覆盖正/反斜杠、盘符大小写,确保跨 VS IDE/命令行环境一致。
+# --------------------------------------------------------------------------
+list(APPEND CMAKE_IGNORE_PATH
+     "G:/msys64/ucrt64"   "G:/msys64/mingw64"   "G:/msys64/usr"
+     "g:/msys64/ucrt64"   "g:/msys64/mingw64"   "g:/msys64/usr"
+     "G:/msys64"          "g:/msys64"
+     "/msys64"            "/ucrt64"             "/mingw64")
+
 set(WITH_SSL         OFF CACHE BOOL "" FORCE)
 set(WITH_UNIT_TESTS  OFF CACHE BOOL "" FORCE)
 set(WITH_DYNCOL      OFF CACHE BOOL "" FORCE)
+set(WITH_CURL        OFF CACHE BOOL "" FORCE)
+# 禁用 PkgConfig:本机 PATH 含 msys64\ucrt64\bin(见 README 运行说明),若放任
+# find_package(PkgConfig),它会发现 msys64 的 pkg-config.exe 并拽入 MinGW 版
+# libcurl 的 -IG:/msys64/ucrt64/include,使 MSVC 编译时吃到 _mingw.h/corecrt.h,
+# MSVC 不认 GCC 内建类型 __UINTPTR_TYPE__ → corecrt.h(155) 一片语法错误。
+# 关闭 PkgConfig 是双保险:即便将来有人忘了用 scripts/build_x64-debug.bat 的
+# 干净环境配置,也不会再触发该污染。
+set(CMAKE_DISABLE_FIND_PACKAGE_PkgConfig ON CACHE BOOL "" FORCE)
 set(WITH_EXTERNAL_ZLIB OFF CACHE BOOL "" FORCE)
 # 所有插件一律 STATIC,静态编译进 libmariadb。
 # 原因:FetchContent(add_subdirectory)下,DYNAMIC(MODULE)插件会发出

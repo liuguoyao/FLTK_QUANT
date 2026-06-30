@@ -91,6 +91,11 @@ void SaveDataSourceCb(Fl_Widget*, void *data) {
         fl_alert("保存失败(无法写入 config.ini)");
     }
 }
+
+void CancelDataSourceCb(Fl_Widget*, void *data) {
+    DlgFields *f = static_cast<DlgFields*>(data);
+    f->win->hide();
+}
 }  // namespace
 
 static void Menu_ConfigureDataSource(Fl_Widget*, void*) {
@@ -127,8 +132,11 @@ static void Menu_ConfigureDataSource(Fl_Widget*, void*) {
 
     Fl_Button *saveBtn = new Fl_Button(140, 215, 100, 28, "保存");
     saveBtn->callback(SaveDataSourceCb, f);
+    Fl_Button *cancelBtn = new Fl_Button(250, 215, 100, 28, "取消");
+    cancelBtn->callback(CancelDataSourceCb, f);
     dlg->end();
     dlg->set_modal();
+    dlg->callback(CancelDataSourceCb, f);
 
     dlg->show();
     while (dlg->shown()) Fl::wait();

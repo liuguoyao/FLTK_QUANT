@@ -4,6 +4,7 @@
 #include <map>
 #include <queue>
 #include <FL/fl_ask.H>
+#include <FL/Fl_Choice.H>
 
 static std::vector<ExecHistoryEntry> g_history;
 
@@ -101,6 +102,31 @@ std::string ExecuteDAG(MyDesk *desk) {
     while (!q.empty()) {
         Fl_OpBox *box = q.front(); q.pop();
         log += std::string("  [") + std::to_string(++executed) + "] " + (box->label() ? box->label() : "") + "\n";
+        // 打印节点参数
+        for (int j = 0; j < box->children(); ++j) {
+            Fl_Widget *w = box->child(j);
+            if (dynamic_cast<MyButton*>(w)) continue; // 跳过端口按钮
+            const char *val = nullptr;
+            char valBuf[64];
+            if (auto *inp = dynamic_cast<Fl_Input*>(w)) {
+                val = inp->value();
+            } else if (auto *ctr = dynamic_cast<Fl_Counter*>(w)) {
+                snprintf(valBuf, sizeof(valBuf), "%.3f", ctr->value());
+                val = valBuf;
+            } else if (auto *ch = dynamic_cast<Fl_Choice*>(w)) {
+                val = ch->text(ch->value());
+            } else {
+                continue; // Fl_Box 等纯标签跳过
+            }
+            // 优先取前一个 Fl_Box 作为参数名(XGBoost 布局: Fl_Box + Fl_Counter)
+            const char *pname = (w->label() && w->label()[0]) ? w->label() : nullptr;
+            if (!pname && j > 0) {
+                Fl_Widget *prev = box->child(j - 1);
+                if (dynamic_cast<Fl_Box*>(prev) && prev->label() && prev->label()[0])
+                    pname = prev->label();
+            }
+            log += std::string("    ║ ") + (pname ? pname : "") + ": " + (val ? val : "") + "\n";
+        }
         for (Fl_OpBox *next : outEdges[box])
             if (--indegree[next] == 0) q.push(next);
     }
